@@ -34,7 +34,7 @@ def create_booking(db: Session, booking: schemas.Booking):
     db_booking = models.Booking(
         user_id=booking.user_id,
         room_id=booking.room_id,
-        reserved_num=booking.reserved_num,
+        booked_num=booking.booked_num,
         start_datetime=booking.start_datetime,
         end_datetime=booking.end_datetime
     )

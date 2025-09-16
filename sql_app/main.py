@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, List
+from fastapi import FastAPI, Depends
+from typing import List
 from sqlalchemy.orm import Session
 
 from . import crud, database, models, schemas
 from .database import SessionLocal, engine
 
-models.Base.metadata.create_all()
+models.Base.metadata.create_all(bind=engine)
 
 def get_db():
     db = SessionLocal()
@@ -37,13 +38,13 @@ async def read_bookings(skip: int = 0, limit: int = 100, db: Session = Depends(g
 
 # ユーザー一覧取得
 @app.post("/users", response_model=schemas.User)
-async def create_users(user: schemas.User, db: Session = Depends(get_db)):
+async def create_users(user: schemas.CreateUser, db: Session = Depends(get_db)):
     return crud.create_user(db=db, user=user)
 
 @app.post("/rooms", response_model=schemas.Room)
-async def create_rooms(room: schemas.Room, db: Session = Depends(get_db)):
+async def create_rooms(room: schemas.CreateRoom, db: Session = Depends(get_db)):
     return crud.create_room(db=db, room=room)
     
 @app.post("/bookings", response_model=schemas.Booking)
-async def create_bookings(booking: schemas.Booking, db: Session = Depends(get_db)):
+async def create_bookings(booking: schemas.CreateBooking, db: Session = Depends(get_db)):
     return crud.create_booking(db=db, booking=booking)
