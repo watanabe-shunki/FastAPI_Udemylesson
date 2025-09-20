@@ -64,8 +64,9 @@ elif page == "bookings":
     url_users = "http://127.0.0.1:8000/users"
     res = requests.get(url_users)
     users = res.json()
-    user_name = {}
+    st.write(res.json())
     # ユーザー名をキー、ユーザーIDをバリューとして辞書型に変換
+    user_name = {}
     for user in users:
         user_name[user["username"]] = user["user_id"]
     
@@ -81,15 +82,23 @@ elif page == "bookings":
         }
         
     st.write("### 会議室一覧")
-    df_rooms = pd.DataFrame(rooms)
-    df_rooms.columns = ["会議室", "定員", "会議室ID"]
+    """
+    独自の実装
+    - if文の条件式
+    - if文の中の処理
+    """
+    if not rooms:
+        df_rooms = pd.DataFrame(columns= ["会議室", "定員", "会議室ID"])
+    else:
+        df_rooms = pd.DataFrame(rooms)
+        df_rooms.columns = ["会議室", "定員", "会議室ID"]
     st.table(df_rooms)
 
     url_bookings = "http://127.0.0.1:8000/bookings"
     res = requests.get(url_bookings)
     bookings = res.json()
-    df_bookings = pd.DataFrame(bookings)    
-    
+    df_bookings = pd.DataFrame(bookings)
+
     user_id = {}
     for user in users:
         user_id[user["user_id"]] = user["username"]
@@ -106,12 +115,21 @@ elif page == "bookings":
     to_roomname = lambda x: room_id[x]["room_name"]
     to_datetime = lambda x: datetime.datetime.fromisoformat(x).strftime("%y/%m/%d %H:%M")
     
-    # 特定の列に適用
-    df_bookings["user_id"] = df_bookings["user_id"].map(to_username)
-    df_bookings["room_id"] = df_bookings["room_id"].map(to_roomname)
-    df_bookings["start_datetime"] = df_bookings["start_datetime"].map(to_datetime)
-    df_bookings["end_datetime"] = df_bookings["end_datetime"].map(to_datetime)
-    
+    """
+    独自の実装
+    - if文の条件式
+    - else文の中の処理
+    """
+    if not df_bookings.empty and "user_id" in df_bookings.columns:
+        # 特定の列に適用
+        df_bookings["user_id"] = df_bookings["user_id"].map(to_username)
+        df_bookings["room_id"] = df_bookings["room_id"].map(to_roomname)
+        df_bookings["start_datetime"] = df_bookings["start_datetime"].map(to_datetime)
+        df_bookings["end_datetime"] = df_bookings["end_datetime"].map(to_datetime)
+    else:
+        df_bookings = pd.DataFrame(columns=[
+            "予約者名", "会議室名", "予約人数", "開始時刻", "終了時刻", "予約番号"
+        ])  
     df_bookings = df_bookings.rename(columns={
         "user_id": "予約者名",
         "room_id": "会議室名",
@@ -125,12 +143,12 @@ elif page == "bookings":
     st.table(df_bookings)
     
     with st.form(key="booking"):
-        username: int = st.selectbox("予約者名", user_name.keys())
-        roomname: int = st.selectbox("会議室名", rooms_name.keys())
+        username: str = st.selectbox("予約者名", user_name.keys())
+        roomname: str = st.selectbox("会議室名", rooms_name.keys())
         booked_num: int = st.number_input("予約人数", step=1, min_value=1)
-        date = st.date_input("日付入力", min_value="today")
-        start_time = st.time_input("開始時刻: ", value=datetime.time(9, 0))
-        end_time = st.time_input("終了時刻: ", value=datetime.time(20, 0))
+        date = st.date_input("日付入力", min_value=datetime.date.today())
+        start_time = st.time_input("開始時刻: ", value=datetime.time(hour=9, minute=0))
+        end_time = st.time_input("終了時刻: ", value=datetime.time(hour=20, minute=0))
         
         submit_button = st.form_submit_button(label="予約登録")
         
@@ -158,19 +176,25 @@ elif page == "bookings":
                 minute=end_time.minute
             ).isoformat()
         }
-        # 定員以下の予約人数の場合のみ登録許可
-        if booked_num <= capacity:
+        # 定員より多い予約人数の場合
+        if booked_num > capacity:
+            st.error(f"{roomname}の定員は、{capacity}名です。{capacity}名以下の予約人数を受け付けています")
+        elif start_time >= end_time:
+            st.error("終了時刻は開始時刻より後の時間を指定してください。")
+        elif start_time < datetime.time(hour=9, minute=0, second=0) or end_time > datetime.time(hour=20, minute=0, second=0):
+            st.error("利用時間は9:00~20:00になります。")        
+        else:
             url = "http://127.0.0.1:8000/bookings"
             res = requests.post(
                 url,
                 data = json.dumps(data)
             )
-            print(res.status_code)
+            st.write(res.status_code)
             print(res.headers.get("Content-Type"))
-            print(res.text)   # 実際のレスポンスボディ
+            st.write(res.text)   # 実際のレスポンスボディ
+        
             if res.status_code == 200:
-                st.success("予約完了しました。")
-                st.write(res.status_code)
-            st.json(res.json())
-        else:
-            st.error(f"{roomname}の定員は、{capacity}名です。{capacity}名以下の予約人数を受け付けています")
+                    st.success("予約完了しました。")
+            elif res.status_code == 404 and res.json()["detail"] == "Already booked":
+                st.error("指定の時間は既に予約が入っています")
+            
